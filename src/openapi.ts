@@ -14,7 +14,7 @@ export function generateOpenAPISpec(): Record<string, unknown> {
     openapi: "3.0.0",
     info: {
       title: "NZ Schools API",
-      version: "0.0.1",
+      version: "0.0.3",
       description:
         "API for New Zealand school data - filter, search, and retrieve comprehensive school information directly from the Ministry of Education dataset.",
     },
@@ -23,10 +23,42 @@ export function generateOpenAPISpec(): Record<string, unknown> {
       { url: "https://dev.schools.tom.so", description: "Development" },
     ],
     tags: [
+      { name: "Authentication", description: "API key management" },
       { name: "Schools", description: "School data retrieval operations" },
       { name: "Sync", description: "Data sync operations" },
       { name: "Health", description: "API health and status" },
     ],
+    components: {
+      securitySchemes: {
+        ApiKeyAuth: {
+          type: "apiKey",
+          in: "header",
+          name: "x-api-key",
+          description:
+            "API key required to access /v1/* endpoints. Contact the API maintainer to obtain a key.",
+        },
+      },
+      responses: {
+        UnauthorizedError: {
+          description: "Invalid or missing API key",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  error: { type: "string", example: "Unauthorized" },
+                  message: {
+                    type: "string",
+                    example:
+                      "Invalid or missing API key. Please provide a valid API key in the x-api-key header.",
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     paths: {
       "/health": {
         get: {
@@ -76,11 +108,74 @@ export function generateOpenAPISpec(): Record<string, unknown> {
           },
         },
       },
+      "/request-key": {
+        post: {
+          tags: ["Authentication"],
+          summary: "Request a new API key",
+          operationId: "requestApiKey",
+          description:
+            "Request a new API key for accessing the /v1/* endpoints. The key will only be shown once, so make sure to save it.",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["name", "email"],
+                  properties: {
+                    name: {
+                      type: "string",
+                      minLength: 1,
+                      maxLength: 100,
+                      description: "Your name or application name",
+                      example: "My App",
+                    },
+                    email: {
+                      type: "string",
+                      format: "email",
+                      description: "Your email address",
+                      example: "user@example.com",
+                    },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            "200": {
+              description: "API key created successfully",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      success: { type: "boolean", example: true },
+                      message: { type: "string" },
+                      apiKey: {
+                        type: "string",
+                        description:
+                          "Your API key. Save this - it will not be shown again.",
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            "400": {
+              description: "Invalid request body",
+            },
+            "500": {
+              description: "Failed to create API key",
+            },
+          },
+        },
+      },
       "/v1/schools": {
         get: {
           tags: ["Schools"],
           summary: "Get all schools with filtering",
           operationId: "getAllSchools",
+          security: [{ ApiKeyAuth: [] }],
           parameters: [
             {
               name: "name",
@@ -154,6 +249,9 @@ export function generateOpenAPISpec(): Record<string, unknown> {
                 },
               },
             },
+            "401": {
+              $ref: "#/components/responses/UnauthorizedError",
+            },
             "429": {
               description: "Rate limit exceeded",
               content: {
@@ -191,6 +289,7 @@ export function generateOpenAPISpec(): Record<string, unknown> {
           tags: ["Schools"],
           summary: "Full-text search schools by name",
           operationId: "searchSchools",
+          security: [{ ApiKeyAuth: [] }],
           parameters: [
             {
               name: "q",
@@ -238,6 +337,9 @@ export function generateOpenAPISpec(): Record<string, unknown> {
             "429": {
               description: "Rate limit exceeded",
             },
+            "401": {
+              $ref: "#/components/responses/UnauthorizedError",
+            },
             "500": {
               description: "Server error",
             },
@@ -249,6 +351,7 @@ export function generateOpenAPISpec(): Record<string, unknown> {
           tags: ["Schools"],
           summary: "Get school by School ID",
           operationId: "getSchoolById",
+          security: [{ ApiKeyAuth: [] }],
           parameters: [
             {
               name: "schoolId",
@@ -289,6 +392,9 @@ export function generateOpenAPISpec(): Record<string, unknown> {
             "429": {
               description: "Rate limit exceeded",
             },
+            "401": {
+              $ref: "#/components/responses/UnauthorizedError",
+            },
             "500": {
               description: "Server error",
             },
@@ -300,6 +406,7 @@ export function generateOpenAPISpec(): Record<string, unknown> {
           tags: ["Schools"],
           summary: "Get schools by city",
           operationId: "getSchoolsByCity",
+          security: [{ ApiKeyAuth: [] }],
           parameters: [
             {
               name: "city",
@@ -321,6 +428,7 @@ export function generateOpenAPISpec(): Record<string, unknown> {
           ],
           responses: {
             "200": { description: "Schools in city" },
+            "401": { $ref: "#/components/responses/UnauthorizedError" },
             "429": { description: "Rate limit exceeded" },
             "500": { description: "Server error" },
           },
@@ -331,6 +439,7 @@ export function generateOpenAPISpec(): Record<string, unknown> {
           tags: ["Schools"],
           summary: "Get schools by suburb",
           operationId: "getSchoolsBySuburb",
+          security: [{ ApiKeyAuth: [] }],
           parameters: [
             {
               name: "suburb",
@@ -352,6 +461,7 @@ export function generateOpenAPISpec(): Record<string, unknown> {
           ],
           responses: {
             "200": { description: "Schools in suburb" },
+            "401": { $ref: "#/components/responses/UnauthorizedError" },
             "429": { description: "Rate limit exceeded" },
             "500": { description: "Server error" },
           },
@@ -362,6 +472,7 @@ export function generateOpenAPISpec(): Record<string, unknown> {
           tags: ["Schools"],
           summary: "Get schools by authority",
           operationId: "getSchoolsByAuthority",
+          security: [{ ApiKeyAuth: [] }],
           parameters: [
             {
               name: "authority",
@@ -383,6 +494,7 @@ export function generateOpenAPISpec(): Record<string, unknown> {
           ],
           responses: {
             "200": { description: "Schools by authority" },
+            "401": { $ref: "#/components/responses/UnauthorizedError" },
             "429": { description: "Rate limit exceeded" },
             "500": { description: "Server error" },
           },
@@ -393,6 +505,7 @@ export function generateOpenAPISpec(): Record<string, unknown> {
           tags: ["Schools"],
           summary: "Get schools by status",
           operationId: "getSchoolsByStatus",
+          security: [{ ApiKeyAuth: [] }],
           parameters: [
             {
               name: "status",
@@ -414,6 +527,7 @@ export function generateOpenAPISpec(): Record<string, unknown> {
           ],
           responses: {
             "200": { description: "Schools by status" },
+            "401": { $ref: "#/components/responses/UnauthorizedError" },
             "429": { description: "Rate limit exceeded" },
             "500": { description: "Server error" },
           },
@@ -424,6 +538,7 @@ export function generateOpenAPISpec(): Record<string, unknown> {
           tags: ["Sync"],
           summary: "Trigger manual data sync",
           operationId: "triggerSync",
+          security: [{ ApiKeyAuth: [] }],
           responses: {
             "200": {
               description: "Sync completed",
@@ -441,6 +556,7 @@ export function generateOpenAPISpec(): Record<string, unknown> {
                 },
               },
             },
+            "401": { $ref: "#/components/responses/UnauthorizedError" },
             "429": { description: "Rate limit exceeded" },
             "500": {
               description: "Sync failed",
@@ -464,6 +580,7 @@ export function generateOpenAPISpec(): Record<string, unknown> {
           tags: ["Sync"],
           summary: "Get sync status",
           operationId: "getSyncStatus",
+          security: [{ ApiKeyAuth: [] }],
           responses: {
             "200": {
               description: "Current sync status",
@@ -483,6 +600,7 @@ export function generateOpenAPISpec(): Record<string, unknown> {
                 },
               },
             },
+            "401": { $ref: "#/components/responses/UnauthorizedError" },
             "429": { description: "Rate limit exceeded" },
             "500": { description: "Server error" },
           },

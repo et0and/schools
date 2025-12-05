@@ -13,6 +13,7 @@ A Cloudflare Workers API service that provides access to New Zealand schools dat
 ## API Endpoints
 
 ### Base URL
+
 All endpoints are prefixed with `/v1`
 
 ### Endpoints
@@ -55,11 +56,13 @@ All endpoints return JSON with the following structure:
 
 1. Clone the repository
 2. Install dependencies:
+
    ```bash
    npm install
    ```
 
 3. Create D1 database and KV namespace:
+
    ```bash
    npx wrangler d1 create schools_database
    npx wrangler kv:namespace create "schools_cache_namespace"
@@ -68,6 +71,7 @@ All endpoints return JSON with the following structure:
 4. Update `wrangler.jsonc` with the actual database ID and KV namespace ID
 
 5. Run database migrations:
+
    ```bash
    npx wrangler d1 migrations apply schools_database
    ```

@@ -6,10 +6,10 @@
   "kv_namespaces": [
     {
       "binding": "SCHOOLS_CACHE",
-      "id": "d3a724b7cd5b43e89179a5671885e868"
-    }
+      "id": "d3a724b7cd5b43e89179a5671885e868",
+    },
   ],
   "triggers": {
-    "crons": ["0 2 * * *"]
-  }
+    "crons": ["0 2 * * *"],
+  },
 }

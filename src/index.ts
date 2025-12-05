@@ -18,9 +18,6 @@ import { generateOpenAPISpec } from "./openapi";
 import {
   SchoolQuerySchema,
   PaginationSchema,
-  SchoolResponseSchema,
-  SingleSchoolResponseSchema,
-  ErrorResponseSchema,
   type CloudflareBindings,
 } from "./schema";
 
@@ -39,8 +36,6 @@ function createTursoClient(env: Bindings) {
 app.use("*", cors());
 app.use("*", logger());
 app.use("*", prettyJSON());
-
-// Rate limiting middleware
 app.use("/v1/*", async (c, next) => {
   const rateLimitService = new RateLimitService(c.env.SCHOOLS_CACHE);
   const ip = c.req.header("cf-connecting-ip") || "unknown";
@@ -58,27 +53,153 @@ app.use("/v1/*", async (c, next) => {
         message: "Too many requests. Please try again later.",
         resetAt: new Date(result.resetAt).toISOString(),
       },
-      429
+      429,
     );
   }
 
   await next();
 });
+app.use("/v1/*", async (c, next) => {
+  const apiKey = c.req.header("x-api-key");
 
-// Health check
+  if (!apiKey) {
+    return c.json(
+      {
+        error: "Unauthorized",
+        message:
+          "Missing API key. Please provide a valid API key in the x-api-key header.",
+      },
+      401,
+    );
+  }
+
+  try {
+    const response = await fetch("https://api.unkey.dev/v1/keys.verifyKey", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        apiId: c.env.UNKEY_API_ID,
+        key: apiKey,
+      }),
+    });
+
+    if (!response.ok) {
+      return c.json(
+        {
+          error: "Authentication error",
+          message: "An error occurred while validating your API key",
+        },
+        500,
+      );
+    }
+
+    const result = (await response.json()) as { valid: boolean; code?: string };
+
+    if (!result.valid) {
+      return c.json(
+        {
+          error: "Unauthorized",
+          message:
+            "Invalid API key. Please provide a valid API key in the x-api-key header.",
+        },
+        401,
+      );
+    }
+
+    await next();
+  } catch (error) {
+    console.error("Error validating API key:", error);
+    return c.json(
+      {
+        error: "Authentication error",
+        message: "An error occurred while validating your API key",
+      },
+      500,
+    );
+  }
+});
+
 app.get("/health", (c) => {
   return c.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-// API Documentation
 app.get("/docs", swaggerUI({ url: "/openapi.json" }));
 
-// OpenAPI spec endpoint
 app.get("/openapi.json", (c) => {
   return c.json(generateOpenAPISpec());
 });
 
-// Get all schools with filtering
+app.post(
+  "/request-key",
+  zValidator(
+    "json",
+    z.object({
+      name: z.string().min(1).max(100),
+      email: z.string().email(),
+    }),
+  ),
+  async (c) => {
+    const { name, email } = c.req.valid("json");
+
+    try {
+      const response = await fetch("https://api.unkey.dev/v1/keys.createKey", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${c.env.UNKEY_ROOT_KEY}`,
+        },
+        body: JSON.stringify({
+          apiId: c.env.UNKEY_API_ID,
+          name: name,
+          ownerId: email,
+          meta: {
+            email: email,
+            createdAt: new Date().toISOString(),
+          },
+          ratelimit: {
+            async: false,
+            limit: 50,
+            duration: 60000, // 50 requests per minute
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error("Unkey API error:", error);
+        return c.json(
+          {
+            error: "Failed to create API key",
+            message:
+              "An error occurred while creating your API key. Please try again later.",
+          },
+          500,
+        );
+      }
+
+      const data = (await response.json()) as { key: string; keyId: string };
+
+      return c.json({
+        success: true,
+        message:
+          "API key created successfully. Please save this key - it will not be shown again.",
+        apiKey: data.key,
+      });
+    } catch (error) {
+      console.error("Error creating API key:", error);
+      return c.json(
+        {
+          error: "Internal server error",
+          message: error instanceof Error ? error.message : "Unknown error",
+        },
+        500,
+      );
+    }
+  },
+);
+
 app.get("/v1/schools", zValidator("query", SchoolQuerySchema), async (c) => {
   const query = c.req.valid("query");
   const db = new DatabaseService(createTursoClient(c.env));
@@ -103,12 +224,11 @@ app.get("/v1/schools", zValidator("query", SchoolQuerySchema), async (c) => {
         error: "Internal server error",
         message: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 });
 
-// Full-text search by name
 app.get(
   "/v1/schools/search",
   zValidator(
@@ -116,7 +236,7 @@ app.get(
     z.object({
       q: z.string().min(1),
       ...PaginationSchema.shape,
-    })
+    }),
   ),
   async (c) => {
     const { q, page, limit } = c.req.valid("query");
@@ -143,13 +263,12 @@ app.get(
           error: "Internal server error",
           message: error instanceof Error ? error.message : "Unknown error",
         },
-        500
+        500,
       );
     }
-  }
+  },
 );
 
-// Get school by School_Id
 app.get("/v1/schools/id/:schoolId", async (c) => {
   const schoolId = c.req.param("schoolId");
   const db = new DatabaseService(createTursoClient(c.env));
@@ -163,7 +282,7 @@ app.get("/v1/schools/id/:schoolId", async (c) => {
           error: "Not found",
           message: `School with ID ${schoolId} not found`,
         },
-        404
+        404,
       );
     }
 
@@ -175,12 +294,11 @@ app.get("/v1/schools/id/:schoolId", async (c) => {
         error: "Internal server error",
         message: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 });
 
-// Get schools by city
 app.get(
   "/v1/schools/city/:city",
   zValidator("query", PaginationSchema),
@@ -209,13 +327,12 @@ app.get(
           error: "Internal server error",
           message: error instanceof Error ? error.message : "Unknown error",
         },
-        500
+        500,
       );
     }
-  }
+  },
 );
 
-// Get schools by suburb
 app.get(
   "/v1/schools/suburb/:suburb",
   zValidator("query", PaginationSchema),
@@ -244,13 +361,12 @@ app.get(
           error: "Internal server error",
           message: error instanceof Error ? error.message : "Unknown error",
         },
-        500
+        500,
       );
     }
-  }
+  },
 );
 
-// Get schools by authority
 app.get(
   "/v1/schools/authority/:authority",
   zValidator("query", PaginationSchema),
@@ -283,13 +399,12 @@ app.get(
           error: "Internal server error",
           message: error instanceof Error ? error.message : "Unknown error",
         },
-        500
+        500,
       );
     }
-  }
+  },
 );
 
-// Get schools by status
 app.get(
   "/v1/schools/status/:status",
   zValidator("query", PaginationSchema),
@@ -318,13 +433,13 @@ app.get(
           error: "Internal server error",
           message: error instanceof Error ? error.message : "Unknown error",
         },
-        500
+        500,
       );
     }
-  }
+  },
 );
 
-// Seed database endpoint
+/* // Seed database endpoint
 app.post("/v1/seed", async (c) => {
   const db = new DatabaseService(createTursoClient(c.env));
   const cache = new CacheService(c.env.SCHOOLS_CACHE);
@@ -343,7 +458,7 @@ app.post("/v1/seed", async (c) => {
       500
     );
   }
-});
+}); */
 
 // Manual sync trigger
 app.post("/v1/sync", async (c) => {
@@ -361,7 +476,7 @@ app.post("/v1/sync", async (c) => {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 });
@@ -382,7 +497,7 @@ app.get("/v1/sync/status", async (c) => {
         error: "Internal server error",
         message: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 });
@@ -390,25 +505,25 @@ app.get("/v1/sync/status", async (c) => {
 // Root endpoint
 app.get("/", (c) => {
   return c.json({
-    message: "NZ Schools API",
-    version: "1.0.0",
+    message: "Schools - a hobby school data API service",
+    version: "0.0.3",
     docs: "/docs",
     endpoints: {
-      "POST /v1/seed": "Seed database with schools data",
+      "POST /request-key":
+        'Request a new API key. Post as application/JSON with -d \'{"name": "Name", "email": "email@example.com"}\'',
       "GET /v1/schools": "Get all schools with filtering and pagination",
       "GET /v1/schools/search?q={query}": "Full-text search schools by name",
       "GET /v1/schools/id/{schoolId}": "Get school by School ID",
       "GET /v1/schools/city/{city}": "Get schools by city",
       "GET /v1/schools/suburb/{suburb}": "Get schools by suburb",
       "GET /v1/schools/authority/{authority}": "Get schools by authority",
-      "GET /v1/schools/status/{status}": "Get schools by status",
-      "POST /v1/sync": "Trigger manual data sync",
-      "GET /v1/sync/status": "Get sync status",
+      "GET /v1/schools/status/{status}": "Get schools by status, e.g. Open",
+      "GET /v1/sync/status":
+        "Get sync status (when we are ingesting from the Ministry of Education)",
     },
   });
 });
 
-// Scheduled task handler for automatic sync
 export default {
   fetch: app.fetch,
 
@@ -423,12 +538,12 @@ export default {
       sync.syncData().then((result) => {
         if (result.success) {
           console.log(
-            `Scheduled sync completed: ${result.recordCount} records`
+            `Scheduled sync completed: ${result.recordCount} records`,
           );
         } else {
           console.error(`Scheduled sync failed: ${result.error}`);
         }
-      })
+      }),
     );
   },
 };

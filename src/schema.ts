@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from "zod";
 
 // Base school schema
 export const SchoolSchema = z.object({
@@ -55,22 +55,24 @@ export const SchoolSchema = z.object({
   CohortEntry: z.string().optional(),
   Status: z.string().optional(),
   DateSchoolOpened: z.string().optional(),
-})
+});
 
 // Query schemas
 export const PaginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
-})
+});
 
-export const SchoolQuerySchema = z.object({
-  name: z.string().optional(),
-  city: z.string().optional(),
-  suburb: z.string().optional(),
-  authority: z.string().optional(),
-  status: z.string().optional(),
-  org_type: z.string().optional(),
-}).merge(PaginationSchema)
+export const SchoolQuerySchema = z
+  .object({
+    name: z.string().optional(),
+    city: z.string().optional(),
+    suburb: z.string().optional(),
+    authority: z.string().optional(),
+    status: z.string().optional(),
+    org_type: z.string().optional(),
+  })
+  .merge(PaginationSchema);
 
 // Response schemas
 export const SchoolResponseSchema = z.object({
@@ -81,17 +83,17 @@ export const SchoolResponseSchema = z.object({
     total: z.number(),
     totalPages: z.number(),
   }),
-})
+});
 
 export const SingleSchoolResponseSchema = z.object({
   data: SchoolSchema,
-})
+});
 
 export const ErrorResponseSchema = z.object({
   error: z.string(),
   message: z.string(),
   resetAt: z.string().optional(),
-})
+});
 
 // Sync response schemas
 export const SyncResponseSchema = z.object({
@@ -99,34 +101,36 @@ export const SyncResponseSchema = z.object({
   recordCount: z.number().optional(),
   lastSync: z.string().optional(),
   error: z.string().optional(),
-})
+});
 
 export const SyncStatusResponseSchema = z.object({
   lastSync: z.string().nullable(),
   recordCount: z.number(),
   isStale: z.boolean(),
-})
+});
 
 export const SchoolsApiResponseSchema = z.object({
   success: z.boolean(),
   result: z.object({
     records: z.array(SchoolSchema),
   }),
-})
+});
 
 // Type exports
-export type School = z.infer<typeof SchoolSchema>
-export type SchoolQuery = z.infer<typeof SchoolQuerySchema>
-export type SchoolResponse = z.infer<typeof SchoolResponseSchema>
-export type SingleSchoolResponse = z.infer<typeof SingleSchoolResponseSchema>
-export type ErrorResponse = z.infer<typeof ErrorResponseSchema>
-export type SyncResponse = z.infer<typeof SyncResponseSchema>
-export type SyncStatusResponse = z.infer<typeof SyncStatusResponseSchema>
-export type SchoolsApiResponse = z.infer<typeof SchoolsApiResponseSchema>
+export type School = z.infer<typeof SchoolSchema>;
+export type SchoolQuery = z.infer<typeof SchoolQuerySchema>;
+export type SchoolResponse = z.infer<typeof SchoolResponseSchema>;
+export type SingleSchoolResponse = z.infer<typeof SingleSchoolResponseSchema>;
+export type ErrorResponse = z.infer<typeof ErrorResponseSchema>;
+export type SyncResponse = z.infer<typeof SyncResponseSchema>;
+export type SyncStatusResponse = z.infer<typeof SyncStatusResponseSchema>;
+export type SchoolsApiResponse = z.infer<typeof SchoolsApiResponseSchema>;
 
 // Cloudflare bindings interface
 export interface CloudflareBindings {
-  SCHOOLS_CACHE: KVNamespace
-  TURSO_URL: string
-  TURSO_TOKEN: string
+  SCHOOLS_CACHE: KVNamespace;
+  TURSO_URL: string;
+  TURSO_TOKEN: string;
+  UNKEY_ROOT_KEY: string;
+  UNKEY_API_ID: string;
 }
