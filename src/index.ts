@@ -70,17 +70,8 @@ app.get("/health", (c) => {
   return c.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-// Debug endpoint
-app.get("/debug/env", (c) => {
-  return c.json({
-    TURSO_URL: c.env.TURSO_URL,
-    TURSO_TOKEN: c.env.TURSO_TOKEN ? "***" : "undefined",
-    SCHOOLS_CACHE: c.env.SCHOOLS_CACHE ? "exists" : "undefined"
-  });
-});
-
 // API Documentation
-app.get("/", swaggerUI({ url: "/openapi.json" }));
+app.get("/docs", swaggerUI({ url: "/openapi.json" }));
 
 // OpenAPI spec endpoint
 app.get("/openapi.json", (c) => {
