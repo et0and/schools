@@ -1,20 +1,8 @@
-# Schools API
+# Schools
 
-A Cloudflare Workers API service that provides access to New Zealand schools data with caching, rate limiting, and OpenAPI documentation.
+A Cloudflare Workers API service that provides access to New Zealand school directory data with caching, rate limiting, and OpenAPI documentation.
 
-## Features
-
-- **Data Caching**: Schools data is cached in D1 database and KV store for fast access
-- **Rate Limiting**: 100 requests per 15-minute window per IP address
-- **OpenAPI Documentation**: Auto-generated API docs available at `/docs`
-- **Multiple Search Endpoints**: Search schools by name, city, status, authority, suburb, or email
-- **TypeScript**: Fully typed with Zod schemas for validation
-
-## API Endpoints
-
-### Base URL
-
-All endpoints are prefixed with `/v1`
+This uses public data from [data.govt.nz](https://data.govt.nz), but provides a RESTful interface and some performance benefits thanks to Cloudflare. I haven't done any proper benchmarking yet, but this should be considerably faster than trying to query the data.govt.nz site directly.
 
 ### Endpoints
 
@@ -26,17 +14,6 @@ All endpoints are prefixed with `/v1`
 - `GET /v1/schools/suburb/:suburb` - Search schools by suburb (partial match)
 - `GET /v1/schools/email/:email` - Search schools by email (partial match)
 - `GET /v1/rate-limit` - Get current rate limit status
-
-### Response Format
-
-All endpoints return JSON with the following structure:
-
-```json
-{
-  "data": [...],
-  "count": 123
-}
-```
 
 ## Rate Limiting
 
@@ -84,33 +61,11 @@ All endpoints return JSON with the following structure:
 ### Deployment
 
 ```bash
-npm run deploy
+npm run deploy 
 ```
 
-## Data Source
+## Disclaimer
 
-School data is sourced from the New Zealand Government's data portal: https://catalogue.data.govt.nz/dataset/directory-of-educational-organisations
+This is purely a hobby project I started to use Hono and Cloudflare Workers. Some of the architectural decisions and patterns are a bit undercooked, so this should not be used for anything serious.
 
-The API automatically fetches fresh data every 24 hours and caches it for optimal performance.
-
-## Architecture
-
-- **Hono**: HTTP framework for Cloudflare Workers
-- **D1**: SQLite database for persistent storage
-- **KV**: Key-value store for caching and rate limiting
-- **Zod**: Schema validation and TypeScript type generation
-- **OpenAPI**: Auto-generated API documentation
-
-## Project Structure
-
-```
-src/
-├── index.ts          # Main application and routes
-├── types.ts          # Zod schemas and TypeScript types
-└── services/
-    ├── schools.ts    # Data fetching and caching service
-    └── rateLimit.ts  # Rate limiting service
-
-migrations/
-└── 001_initial_schema.sql  # Database schema
-```
+I'm planning on refactoring a lot of this soon to use Effect (mainly for better error handling patterns and type safety).
